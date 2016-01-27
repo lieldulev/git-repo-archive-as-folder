@@ -1,0 +1,128 @@
+#!/usr/bin/env bash
+WORK_DIR="/tmp/dest_repo"
+
+
+set -o nounset
+
+# Exit immediately if a pipeline returns non-zero.
+set -o errexit
+
+# Return value of a pipeline is the value of the last (rightmost) command to
+# exit with a non-zero status, or zero if all commands in the pipeline exit
+# successfully.
+set -o pipefail
+
+# Set IFS to just newline and tab at the start
+DEFAULT_IFS="$IFS"
+SAFER_IFS=$'\n\t'
+IFS="$SAFER_IFS"
+
+
+# Set to the program's basename.
+_ME=$(basename "$0")
+
+# Usage: _debug printf "Debug info. Variable: %s\n" "$0"
+__DEBUG_COUNTER=0
+_debug() {
+  if [[ "${_USE_DEBUG:-"0"}" -eq 1 ]]
+  then
+    __DEBUG_COUNTER=$((__DEBUG_COUNTER+1))
+    # Prefix debug message with "bug (U+1F41B)"
+    printf "🐛  %s " "${__DEBUG_COUNTER}"
+    "$@"
+    printf "――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――\n"
+  fi
+}
+# This is a shortcut for the _debug() function that simply echos the message.
+debug() {
+  _debug echo "$@"
+}
+
+# Usage: _die printf "Error message. Variable: %s\n" "$0"
+_die() {
+  # Prefix die message with "cross mark (U+274C)", often displayed as a red x.
+  printf "❌  "
+  "$@" 1>&2
+  exit 1
+}
+# This is a shortcut for the _die() function that simply echos the message.
+die() {
+  _die echo "$@"
+}
+
+# Print the program help information.
+_print_help() {
+  cat <<HEREDOC
+
+  git repo archive as directory tool
+  **********************************
+
+  This is a bash script to merge a remote repo into a directory of another remote repo
+  while keeping the commit history.
+
+  The destination repository will have more than one root commit,
+  but that shouldn't pose a problem.
+
+  Based on: http://stackoverflow.com/a/20974621/5759805
+
+  The SOURCE_REPO will be "copied" to DESTINATION_REPO / DESTINATION_FOLDER / SOURCE_NAME
+  If SOURCE_BRANCH not specified master branch will be copied.
+  
+
+Usage:
+$_ME SOURCE_REPO DESTINATION_REPO DESTINATION_FOLDER SOURCE_NAME [SOURCE_BRANCH]
+  $_ME -h | --help
+
+Options:
+  -h --help  Display this help information.
+HEREDOC
+}
+
+_archRepo() {
+
+  #printf "Got %s %s %s\n" "$@"
+  local _source_branch="master"
+  if  [[ $# -eq 5 ]]
+  then
+    _source_branch="$5"
+  fi
+
+  git clone "$2" $WORK_DIR
+  cd $WORK_DIR
+  git remote add $4 $1
+  git fetch $4
+  git branch temp-archive-branch $4/$_source_branch
+  git checkout temp-archive-branch
+  mkdir -p $3/$4
+  git ls-tree -z --name-only HEAD | xargs -0 -I {} git mv {} $3/$4
+  git commit -m "Moved $1 to $4/$3 directory."
+  git checkout master
+  git merge --no-edit temp-archive-branch
+ 
+  printf "All Done, if you like it run:\n cd $WORK_DIR && git push origin master && cd .. && rm -rf $WORK_DIR\n"
+}
+
+_main() {
+  # Set a local `$_arg1` variable to the first argument or, if there is no
+  # first argument, just a blank value.
+  #
+  # NOTE: 'local' is a non-POSIX bash feature and keeps the variable local to
+  # the block of code, as defined by curly braces. It's easiest to just think
+  # of them as local to a function.
+  local _arg1=${1:-}
+
+  # Avoid complex option parsing when only one program option is expected.
+  if [[ "$_arg1" =~ ^-h|--help$|^$  ]]
+  then
+    _print_help
+  elif [[ $# -lt 4 ]]
+  then
+    printf "\n  ❌  Error: Script expects 4 arguments.\n"
+    _print_help
+  else
+    _archRepo "$@"
+  fi
+}
+
+# Call `_main` after everything has been defined.
+_main "$@"
