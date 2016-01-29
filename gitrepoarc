@@ -80,26 +80,35 @@ HEREDOC
 
 _archRepo() {
 
-  #printf "Got %s %s %s\n" "$@"
+  # if source branch wasn't passed, default to master
   local _source_branch="master"
   if  [[ $# -eq 5 ]]
   then
     _source_branch="$5"
   fi
-
+  
+  # Clone target repo
   git clone "$2" $WORK_DIR
   cd $WORK_DIR
+  # Add the source repo to be archived as a remote
   git remote add $4 $1
+  # fetch that source repo remote
   git fetch $4
+  # Create a branch to work on from the source branch
   git branch temp-archive-branch $4/$_source_branch
   git checkout temp-archive-branch
+  # Create the folder (silent)
   mkdir -p $3/$4
+  # git mv all files under that folder
   git ls-tree -z --name-only HEAD | xargs -0 -I {} git mv {} $3/$4
+  # commit the move
   git commit -m "Moved all $1 files to /$3/$4/."
+  # Move to destination's master (work branch files are not there at all, they came from a source repo branch)
   git checkout master
+  # Merge, don't open an editor (conflicts might happen)
+  printf "*****\nStarting auto-merge\n\nIf there are merge conflicts - you will need to resolve them manually before pushing the result.\n*****\n"
   git merge --no-edit temp-archive-branch
- 
-  printf "All Done, if you like it run:\n cd $WORK_DIR && git push origin master && cd .. && rm -rf $WORK_DIR\n"
+  printf "*****\nAll Done, if you like it run:\n cd $WORK_DIR && git push origin master && cd .. && rm -rf $WORK_DIR\n"
 }
 
 _main() {
