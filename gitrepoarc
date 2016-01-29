@@ -95,7 +95,7 @@ _archRepo() {
   git checkout temp-archive-branch
   mkdir -p $3/$4
   git ls-tree -z --name-only HEAD | xargs -0 -I {} git mv {} $3/$4
-  git commit -m "Moved $1 to $4/$3 directory."
+  git commit -m "Moved all $1 files to /$3/$4/."
   git checkout master
   git merge --no-edit temp-archive-branch
  
