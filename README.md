@@ -1,6 +1,6 @@
 # git repo archive as folder
   
-This is a bash script to merge a branch from a remote repo into a directory of another remote repo while keeping the commit history.
+This is a bash script to merge a branch from a remote repo into a directory of another remote repo *while keeping the commit history*.
 > **Important Note**
 >
 > The destination repository will have more than one root commit, but usually that shouldn't pose a problem.  
